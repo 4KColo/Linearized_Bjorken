@@ -3,6 +3,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.integrate as si
+import h5py
+import os
+import multiprocessing as mp
+import ctypes
+from time import time
 
 def OneStep(Re_e, Im_e, Re_gx, Im_gx, Re_gy, Im_gy, Re_geta, Im_geta,
             Kx, Ky, Keta, Tau, dTau, Cs2, Gamma_eta):
@@ -56,9 +61,12 @@ def Gauss_source(Kx, Ky, Keta, Tau, X0, Y0, Eta0, DE, Width):
     Same_factor = DE/Tau * np.exp(-0.5*K2*Sigma2)
     return Same_factor*np.cos(K_dot_X), -Same_factor*np.sin(K_dot_X)
     
-def Linearized_hydro(Kx, Ky, Keta, Taui, Tauf, dTau, Cs2, Gamma_eta):
+def Linearized_hydro(Kx, Ky, Keta, Taui, Tauf, dTau, Cs2, Viscosity):
     Nstep = int((Tauf-Taui)/dTau)+1
     List_tau = np.linspace(Taui, Tauf, Nstep)
+    List_temp = 0.45*(Taui/List_tau)**Cs2
+    List_ep = 4.*40.*List_temp**4/3.1416**2     # epsilon0 + P0 in Bjorken flow
+    List_gamma_eta = Viscosity/List_ep
     
     # source for perturbations in each step
     re_e_source = np.zeros(Nstep)
@@ -78,12 +86,68 @@ def Linearized_hydro(Kx, Ky, Keta, Taui, Tauf, dTau, Cs2, Gamma_eta):
         im_e_old  = im_e_new  + im_e_source[i]
         re_gx_old = re_gx_new + re_gx_source[i]
         im_gx_old = im_gx_new + im_gx_source[i]
+        
+        print im_gx_old
+        
         re_gy_old = re_gy_new + re_gy_source[i]
         im_gy_old = im_gy_new + im_gy_source[i]
         re_geta_old = re_geta_new + re_geta_source[i]
         im_geta_old = im_geta_new + im_geta_source[i]
         
-        re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new = RK4(re_e_old, im_e_old, re_gx_old, im_gx_old, re_gy_old, im_gy_old, re_geta_old, im_geta_old, Kx, Ky, Keta, List_tau[i], dTau, Cs2, Gamma_eta)
+        re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new = RK4(re_e_old, im_e_old, re_gx_old, im_gx_old, re_gy_old, im_gy_old, re_geta_old, im_geta_old, Kx, Ky, Keta, List_tau[i], dTau, Cs2, List_gamma_eta[i])
         
-    return re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new
+    return np.array([re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new])
     
+
+
+C1 = 0.197327
+tau_i = 0.6/C1
+tau_f = 15.0/C1
+dtau = 0.005/C1
+cs_sqd = 1./3
+viscosity = 0.02
+
+N = 5
+kx = np.linspace(-5.0, 5.0, N)
+ky = np.linspace(-5.0, 5.0, N)
+keta = np.linspace(-5.0, 5.0, N)
+
+shared_array_base = mp.Array(ctypes.c_double, N*N*N*8)
+shared_array = np.ctypeslib.as_array(shared_array_base.get_obj())
+shared_array = shared_array.reshape(N,N,N,8)
+
+def Parallel_LinearHydro(X, Output = shared_array):
+    i = X[0]
+    j = X[1]
+    k = X[2]
+    Output[i][j][k] = Linearized_hydro(kx[i], ky[j], keta[k], tau_i, tau_f, dtau, cs_sqd, viscosity)
+    return None
+    
+
+
+ti = time()
+
+Nprocess = mp.cpu_count()
+pool = mp.Pool(Nprocess)
+pool.map(Parallel_LinearHydro, [(i,j,k) for i in range(N) for j in range(N) for k in range(N)])
+
+tf = time()
+print tf - ti
+
+filename = 'Linearized_Hydro_over_Bjorken.hdf5'
+if not os.path.exists(filename):
+    f = h5py.File(filename, 'w')
+else:
+    f = h5py.File(filename, 'a')
+    
+groupname = 'N='+str(N)+'Viscosity='+str(viscosity)
+if groupname in f:
+    del f[groupname]
+group = f.create_group(groupname)
+
+group.attrs.create('kx', kx)
+group.attrs.create('ky', ky)
+group.attrs.create('keta', keta)
+group.create_dataset('e_g', data = shared_array)
+
+f.close()
