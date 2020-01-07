@@ -1,13 +1,25 @@
 #!/usr/bin/env python
 
 import numpy as np
-import matplotlib.pyplot as plt
-import scipy.integrate as si
 import h5py
 import os
 import multiprocessing as mp
 import ctypes
 from time import time
+
+cs_sqd = 1./3               # speed of sound squared
+viscosity_over_s = 0.1      # eta/s
+temp0 = 0.45                # initial temp of QGP
+temp_c = 0.154              # critical temp of QGP
+
+C1 = 0.197327               # 0.197327 GeV*fm = 1
+tau_i = 0.6/C1              # convert to GeV^-1
+tau_f = tau_i*(temp0/temp_c)**(1/cs_sqd)        # ideal Bjorken expansion
+dtau = 0.01/C1              # time step
+nstep = int((tau_f-tau_i)/dtau)+1
+list_tau = np.linspace(tau_i, tau_f, nstep)
+list_temp = temp0*(tau_i/list_tau)**cs_sqd
+list_gamma_eta = viscosity_over_s/list_temp     # gamma_eta = eta/(e+P) = eta/s/T
 
 def OneStep(Re_e, Im_e, Re_gx, Im_gx, Re_gy, Im_gy, Re_geta, Im_geta,
             Kx, Ky, Keta, Tau, dTau, Cs2, Gamma_eta):
@@ -54,59 +66,47 @@ def RK4(Re_e, Im_e, Re_gx, Im_gx, Re_gy, Im_gy, Re_geta, Im_geta,
     
     return Re_e_new, Im_e_new, Re_gx_new, Im_gx_new, Re_gy_new, Im_gy_new, Re_geta_new, Im_geta_new
 
+
 def Gauss_source(Kx, Ky, Keta, Tau, X0, Y0, Eta0, DE, Width):
     Sigma2 = Width * Width
     K2 = Kx*Kx + Ky*Ky + Keta*Keta/(Tau*Tau)
     K_dot_X = Kx*X0 + Ky*Y0 + Keta*Eta0
     Same_factor = DE/Tau * np.exp(-0.5*K2*Sigma2)
     return Same_factor*np.cos(K_dot_X), -Same_factor*np.sin(K_dot_X)
-    
-def Linearized_hydro(Kx, Ky, Keta, Taui, Tauf, dTau, Cs2, Viscosity):
-    Nstep = int((Tauf-Taui)/dTau)+1
-    List_tau = np.linspace(Taui, Tauf, Nstep)
-    List_temp = 0.45*(Taui/List_tau)**Cs2
-    List_ep = 4.*40.*List_temp**4/3.1416**2     # epsilon0 + P0 in Bjorken flow
-    List_gamma_eta = Viscosity/List_ep
-    
+
+
+def Linearized_hydro(Kx, Ky, Keta):
     # source for perturbations in each step
-    re_e_source = np.zeros(Nstep)
-    im_e_source = np.zeros(Nstep)
-    re_gx_source = np.zeros(Nstep)
-    im_gx_source = np.zeros(Nstep)
-    re_gy_source = np.zeros(Nstep)
-    im_gy_source = np.zeros(Nstep)
-    re_geta_source = np.zeros(Nstep)
-    im_geta_source = np.zeros(Nstep)
-    re_e_source[0], im_e_source[0] = Gauss_source(Kx, Ky, Keta, Taui, 0.0, 0.0, 0.0, 1.0, 0.2)
+    re_e_source = np.zeros(nstep)
+    im_e_source = np.zeros(nstep)
+    re_gx_source = np.zeros(nstep)
+    im_gx_source = np.zeros(nstep)
+    re_gy_source = np.zeros(nstep)
+    im_gy_source = np.zeros(nstep)
+    re_geta_source = np.zeros(nstep)
+    im_geta_source = np.zeros(nstep)
+    re_e_source[0], im_e_source[0] = Gauss_source(Kx, Ky, Keta, tau_i, 0.0, 0.0, 0.0, 1.0, 0.2)
     
     re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new = 0., 0., 0., 0., 0., 0., 0., 0.
     
-    for i in range(Nstep):
+    for i in range(nstep):
         re_e_old  = re_e_new  + re_e_source[i]
         im_e_old  = im_e_new  + im_e_source[i]
         re_gx_old = re_gx_new + re_gx_source[i]
         im_gx_old = im_gx_new + im_gx_source[i]
-        
-        print im_gx_old
-        
         re_gy_old = re_gy_new + re_gy_source[i]
         im_gy_old = im_gy_new + im_gy_source[i]
         re_geta_old = re_geta_new + re_geta_source[i]
         im_geta_old = im_geta_new + im_geta_source[i]
-        
-        re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new = RK4(re_e_old, im_e_old, re_gx_old, im_gx_old, re_gy_old, im_gy_old, re_geta_old, im_geta_old, Kx, Ky, Keta, List_tau[i], dTau, Cs2, List_gamma_eta[i])
+                        
+        re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new = RK4(re_e_old, im_e_old, re_gx_old, im_gx_old, re_gy_old, im_gy_old, re_geta_old, im_geta_old, Kx, Ky, Keta, list_tau[i], dtau, cs_sqd, list_gamma_eta[i])
         
     return np.array([re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new])
     
 
 
-C1 = 0.197327
-tau_i = 0.6/C1
-tau_f = 15.0/C1
-dtau = 0.005/C1
-cs_sqd = 1./3
-viscosity = 0.02
 
+### parallel computing
 N = 5
 kx = np.linspace(-5.0, 5.0, N)
 ky = np.linspace(-5.0, 5.0, N)
@@ -120,10 +120,9 @@ def Parallel_LinearHydro(X, Output = shared_array):
     i = X[0]
     j = X[1]
     k = X[2]
-    Output[i][j][k] = Linearized_hydro(kx[i], ky[j], keta[k], tau_i, tau_f, dtau, cs_sqd, viscosity)
+    Output[i][j][k] = Linearized_hydro(kx[i], ky[j], keta[k])
     return None
     
-
 
 ti = time()
 
@@ -134,20 +133,24 @@ pool.map(Parallel_LinearHydro, [(i,j,k) for i in range(N) for j in range(N) for 
 tf = time()
 print tf - ti
 
+
+### save file
 filename = 'Linearized_Hydro_over_Bjorken.hdf5'
 if not os.path.exists(filename):
     f = h5py.File(filename, 'w')
 else:
     f = h5py.File(filename, 'a')
     
-groupname = 'N='+str(N)+'Viscosity='+str(viscosity)
+groupname = 'eta_over_s='+str(viscosity_over_s)
 if groupname in f:
     del f[groupname]
 group = f.create_group(groupname)
 
+group.attrs.create('N', N)
 group.attrs.create('kx', kx)
 group.attrs.create('ky', ky)
 group.attrs.create('keta', keta)
 group.create_dataset('e_g', data = shared_array)
 
 f.close()
+
