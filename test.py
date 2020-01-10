@@ -9,6 +9,19 @@ from evolution import RK4
 from evolution import Point_Source_Test
 from constants import *
 
+from matplotlib import rcParams
+rcParams.update({'figure.autolayout': True})
+
+from matplotlib import rc
+#rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
+## for Palatino and other serif fonts use:
+rc('font',**{'family':'serif'})
+rc('text', usetex=True)
+
+import matplotlib as mpl
+label_size = 16
+mpl.rcParams['xtick.labelsize'] = label_size 
+mpl.rcParams['ytick.labelsize'] = label_size 
 
 kx = 1.0    # GeV
 ky = 1.0
@@ -55,7 +68,13 @@ analytic_re = np.array(analytic_re)
 analytic_im = np.array(analytic_im)
 
 plt.figure()
-plt.plot(list_tau, re_e, linewidth = 2.0, color='black')
-plt.plot(list_tau, analytic_re, linewidth = 2.0, color='red', linestyle = '--')
+plt.plot(list_tau, re_e, linewidth = 2.0, color='black', label='numerical')
+plt.plot(list_tau, analytic_re, linewidth = 2.0, color='red', linestyle = '--', label='analytic')
+plt.xlabel(r'$\tau$(GeV$^{-1}$)', size = 20)
+plt.ylabel(r'$\Re\delta\tilde{\epsilon}$(GeV)', size = 20)
+plt.legend(loc='best', fontsize = 16)
+plt.xticks(fontsize = 16)
+plt.yticks(fontsize = 16)
+plt.savefig('test_kx='+str(kx)+'_ky='+str(ky)+'_x0='+str(x0)+'_y0='+str(y0)+'.pdf')
 plt.show()
 
