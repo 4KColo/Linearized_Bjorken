@@ -88,3 +88,8 @@ def Point_Source(Kx, Ky, Keta, Tau, dTau, X0, Y0, Eta0, Ein, T, Ksc):
     K_dot_X = Kx*X0 + Ky*Y0 + Keta*Eta0
     Same_factor = DE/Tau
     return Same_factor*np.cos(K_dot_X), -Same_factor*np.sin(K_dot_X)
+    
+def Point_Source_Test(Kx, Ky, Keta, X0, Y0, Eta0, DE):
+    K_dot_X = Kx*X0 + Ky*Y0 + Keta*Eta0
+    return DE*np.cos(K_dot_X), -DE*np.sin(K_dot_X)
+

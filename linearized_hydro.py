@@ -13,8 +13,8 @@ from evolution import Point_Source
 from constants import *
 
 e_jet = 100.0               # initial jet energy in GeV
-x0 = 0.0                    # initial position of the jet
-y0 = 0.0
+x0 = 0.0/C1                 # initial position of the jet
+y0 = 0.0/C1
 eta0 = 0.0
 
 para_gauss_width = 1.       # sigma = #/(pi*T), width in Gauss energy deposition
