@@ -27,7 +27,7 @@ list_temp = Tau_to_Temp(list_tau)
 
 def Linearized_Hydro(Kx, Ky, Keta):
     re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new = 0., 0., 0., 0., 0., 0., 0., 0.
-    
+    e_g_nstep = []
     for i in range(nstep):
         # source for perturbations in the first step
         if i == 0:
@@ -45,21 +45,21 @@ def Linearized_Hydro(Kx, Ky, Keta):
         im_geta_old = im_geta_new
                         
         re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new = RK4(re_e_old, im_e_old, re_gx_old, im_gx_old, re_gy_old, im_gy_old, re_geta_old, im_geta_old, Kx, Ky, Keta, list_tau[i], dtau, cs_sqd, viscosity_over_s)
-        
-    return np.array([re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new])
+        e_g_nstep.append([re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new])
+    return np.array(e_g_nstep)
     
 
 ### parallel computing
 Nx = 2
 Ny = 2
 Neta = 2
-kx = np.linspace(-10.0, 10.0, Nx)	# GeV
-ky = np.linspace(-10.0, 10.0, Ny)	# GeV
-keta = np.linspace(-10.0, 10.0, Neta)
+kx = np.linspace(-7.5, 7.5, Nx)		# GeV
+ky = np.linspace(-7.5, 7.5, Ny)		# GeV
+keta = np.linspace(-7.5, 7.5, Neta)
 
-shared_array_base = mp.Array(ctypes.c_double, Nx*Ny*Neta*8)
+shared_array_base = mp.Array(ctypes.c_double, Nx*Ny*Neta*nstep*8)
 shared_array = np.ctypeslib.as_array(shared_array_base.get_obj())
-shared_array = shared_array.reshape(Nx,Ny,Neta,8)
+shared_array = shared_array.reshape(Nx,Ny,Neta,nstep,8)
 
 def Parallel_LinearHydro(X, Output = shared_array):
     i = X[0]
