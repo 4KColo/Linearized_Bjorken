@@ -4,6 +4,7 @@ import numpy as np
 import h5py
 import os
 import multiprocessing as mp
+from functools import partial
 import ctypes
 from time import time
 from evolution import Tau_to_Temp
@@ -11,7 +12,7 @@ from evolution import RK4
 from evolution import Point_Source_Test
 from constants import *
 
-
+### parameters
 x0 = 0.0    # GeV^-1
 y0 = 0.0
 eta0 = 0.0
@@ -24,65 +25,41 @@ nstep = int((tau_f-tau_i)/dtau)+1
 list_tau = np.linspace(tau_i, tau_f, nstep)
 list_temp = Tau_to_Temp(list_tau)
 
-
-def Linearized_Hydro(Kx, Ky, Keta):
-    re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new = 0., 0., 0., 0., 0., 0., 0., 0.
-    e_g_nstep = []
-    for i in range(nstep):
-        # source for perturbations in the first step
-        if i == 0:
-        	re_e_source, im_e_source = Point_Source_Test(Kx, Ky, Keta, x0, y0, eta0, delta_E)
-        	re_e_old  = re_e_new  + re_e_source
-        	im_e_old  = im_e_new  + im_e_source
-        else:
-        	re_e_old  = re_e_new
-        	im_e_old  = im_e_new
-        re_gx_old = re_gx_new
-        im_gx_old = im_gx_new
-        re_gy_old = re_gy_new
-        im_gy_old = im_gy_new
-        re_geta_old = re_geta_new
-        im_geta_old = im_geta_new
-                        
-        re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new = RK4(re_e_old, im_e_old, re_gx_old, im_gx_old, re_gy_old, im_gy_old, re_geta_old, im_geta_old, Kx, Ky, Keta, list_tau[i], dtau, cs_sqd, viscosity_over_s)
-        e_g_nstep.append([re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new])
-    return np.array(e_g_nstep)
-    
-
 ### parallel computing
-Nx = 2
-Ny = 2
-Neta = 2
-kx = np.linspace(-7.5, 7.5, Nx)		# GeV
-ky = np.linspace(-7.5, 7.5, Ny)		# GeV
-keta = np.linspace(-7.5, 7.5, Neta)
+Nx = 100
+Ny = 100
+Neta = 100
+kx = np.linspace(-5.0, 5.0, Nx)        # GeV
+ky = np.linspace(-5.0, 5.0, Ny)        # GeV
+keta = np.linspace(-5.0, 5.0, Neta)
 
-shared_array_base = mp.Array(ctypes.c_double, Nx*Ny*Neta*nstep*8)
+shared_array_base = mp.Array(ctypes.c_double, Nx*Ny*Neta*8)
 shared_array = np.ctypeslib.as_array(shared_array_base.get_obj())
-shared_array = shared_array.reshape(Nx,Ny,Neta,nstep,8)
+shared_array = shared_array.reshape(Nx,Ny,Neta,8)
 
-def Parallel_LinearHydro(X, Output = shared_array):
-    i = X[0]
-    j = X[1]
-    k = X[2]
-    Output[i][j][k] = Linearized_Hydro(kx[i], ky[j], keta[k])
-    return None
+def Linearized_Hydro(X, I_tau, List = shared_array):
+    I_kx = X[0]
+    I_ky = X[1]
+    I_keta = X[2]
+    Kx = kx[I_kx]
+    Ky = ky[I_ky]
+    Keta = keta[I_keta]
+    if I_tau == 0:
+        re_e_new, im_e_new = Point_Source_Test(Kx, Ky, Keta, x0, y0, eta0, delta_E)
+        re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+    else:
+        re_e_old, im_e_old, re_gx_old, im_gx_old, re_gy_old, im_gy_old, re_geta_old, im_geta_old = List[I_kx][I_ky][I_keta]
+        re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new = RK4(re_e_old, im_e_old, re_gx_old, im_gx_old, re_gy_old, im_gy_old, re_geta_old, im_geta_old, Kx, Ky, Keta, list_tau[I_tau], dtau, cs_sqd, viscosity_over_s)
     
+    List[I_kx][I_ky][I_keta] = np.array([re_e_new, im_e_new, re_gx_new, im_gx_new, re_gy_new, im_gy_new, re_geta_new, im_geta_new])
+    return None
 
-ti = time()
-
-Nprocess = mp.cpu_count()
-pool = mp.Pool(Nprocess)
-pool.map(Parallel_LinearHydro, [(i,j,k) for i in range(Nx) for j in range(Ny) for k in range(Neta)])
-
-tf = time()
-print tf - ti
 
 
 ### save file
 filename = 'Linearized_Hydro_over_Bjorken.hdf5'
 if not os.path.exists(filename):
-    f = h5py.File(filename, 'w')
+    f = h5py.File(filename, 'a')
 else:
     f = h5py.File(filename, 'a')
     
@@ -91,13 +68,26 @@ if groupname in f:
     del f[groupname]
 group = f.create_group(groupname)
 
-group.attrs.create('Nx', Nx)
-group.attrs.create('Ny', Ny)
-group.attrs.create('Neta', Neta)
+group.attrs.create('x0', x0)
+group.attrs.create('y0', y0)
+group.attrs.create('eta0', eta0)
 group.attrs.create('kx', kx)
 group.attrs.create('ky', ky)
 group.attrs.create('keta', keta)
-group.create_dataset('e_g', data = shared_array)
+group.create_dataset('tau', data = list_tau)
+
+#ti = time()
+
+Nprocess = mp.cpu_count()
+pool = mp.Pool(Nprocess)
+for istep in range(nstep):
+    Update_Parallel = partial(Linearized_Hydro, I_tau = istep)
+    pool.map(Update_Parallel, [(i,j,k) for i in range(Nx) for j in range(Ny) for k in range(Neta)])
+    group.create_dataset('e_g_'+str(istep), data = shared_array)
+    
+
+#tf = time()
+#print tf - ti
 
 f.close()
 
