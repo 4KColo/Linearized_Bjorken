@@ -10,22 +10,23 @@ def Tau_to_Temp(Tau):
 def OneStep(Re_e, Im_e, Re_gx, Im_gx, Re_gy, Im_gy, Re_geta, Im_geta,
             Kx, Ky, Keta, Tau, dTau, Cs2, Gamma_eta):
     Cs2plus1 = 1.+Cs2
-    K_dot_Re = Kx*Re_gx + Ky*Re_gy + Keta*Re_geta
-    K_dot_Im = Kx*Im_gx + Ky*Im_gy + Keta*Im_geta
-    Tau2 = Tau*Tau
-    K2 = Kx*Kx + Ky*Ky + Keta*Keta/Tau2
+    #K_dot_Re = Kx*Re_gx + Ky*Re_gy + Keta*Tau*Re_geta
+    K_dot_Im = Kx*Im_gx + Ky*Im_gy + Keta*Tau*Im_geta
+    #K2 = Kx*Kx + Ky*Ky + Keta*Keta
+    #Tau2 = Tau*Tau
+    
     
     dRe_e  = Cs2plus1/Tau * Re_e - K_dot_Im
-    dIm_e  = Cs2plus1/Tau * Im_e + K_dot_Re
+    dIm_e  = 0.0#Cs2plus1/Tau * Im_e + K_dot_Re
     
-    dRe_gx = Re_gx/Tau - Cs2*Kx*Im_e + Gamma_eta*K2*Re_gx + 1./3*Gamma_eta*Kx*K_dot_Re
-    dIm_gx = Im_gx/Tau + Cs2*Kx*Re_e + Gamma_eta*K2*Im_gx + 1./3*Gamma_eta*Kx*K_dot_Im
+    dRe_gx = 0.0#Re_gx/Tau - Cs2*Kx*Im_e + Gamma_eta*K2*Re_gx + 1./3*Gamma_eta*Kx*K_dot_Re
+    dIm_gx = 0.0#Im_gx/Tau + Cs2*Kx*Re_e + Gamma_eta*K2*Im_gx + 1./3*Gamma_eta*Kx*K_dot_Im
     
-    dRe_gy = Re_gy/Tau - Cs2*Ky*Im_e + Gamma_eta*K2*Re_gy + 1./3*Gamma_eta*Ky*K_dot_Re
-    dIm_gy = Im_gy/Tau + Cs2*Ky*Re_e + Gamma_eta*K2*Im_gy + 1./3*Gamma_eta*Ky*K_dot_Im
+    dRe_gy = 0.0#Re_gy/Tau - Cs2*Ky*Im_e + Gamma_eta*K2*Re_gy + 1./3*Gamma_eta*Ky*K_dot_Re
+    dIm_gy = 0.0#Im_gy/Tau + Cs2*Ky*Re_e + Gamma_eta*K2*Im_gy + 1./3*Gamma_eta*Ky*K_dot_Im
     
-    dRe_geta = 3.*Re_geta/Tau - Cs2*Keta*Im_e/Tau2 + Gamma_eta*K2*Re_geta + 1./(3.*Tau2)*Gamma_eta*Keta*K_dot_Re
-    dIm_geta = 3.*Im_geta/Tau + Cs2*Keta*Re_e/Tau2 + Gamma_eta*K2*Im_geta + 1./(3.*Tau2)*Gamma_eta*Keta*K_dot_Im
+    dRe_geta = 0.0#3.*Re_geta/Tau - Cs2*Keta*Im_e/Tau + Gamma_eta*K2*Re_geta + 1./(3.*Tau)*Gamma_eta*Keta*Tau*K_dot_Re
+    dIm_geta = 0.0#3.*Im_geta/Tau + Cs2*Keta*Re_e/Tau + Gamma_eta*K2*Im_geta + 1./(3.*Tau)*Gamma_eta*Keta*Tau*K_dot_Im
     
     return -dRe_e*dTau, -dIm_e*dTau, -dRe_gx*dTau, -dIm_gx*dTau, -dRe_gy*dTau, -dIm_gy*dTau, -dRe_geta*dTau, -dIm_geta*dTau
     
@@ -89,7 +90,12 @@ def Point_Source(Kx, Ky, Keta, Tau, dTau, X0, Y0, Eta0, Ein, T, Ksc):
     Same_factor = DE/Tau
     return Same_factor*np.cos(K_dot_X), -Same_factor*np.sin(K_dot_X)
     
-def Point_Source_Test(Kx, Ky, Keta, X0, Y0, Eta0, DE):
-    K_dot_X = Kx*X0 + Ky*Y0 + Keta*Eta0
+def Point_Source_Test(Kx, Ky, Keta, X0, Y0, Eta0, DE, Tau):
+    K_dot_X = Kx*X0 + Ky*Y0 + Keta*Tau*Eta0
     return DE*np.cos(K_dot_X), -DE*np.sin(K_dot_X)
 
+def Gauss_Source_Test(Kx, Ky, Keta, X0, Y0, Eta0, DE, Tau, Width):
+    K2 = Kx*Kx + Ky*Ky + Keta*Keta
+    Factor = DE * np.exp(-K2*Width*Width/2.)
+    K_dot_X = Kx*X0 + Ky*Y0 + Keta*Tau*Eta0
+    return Factor*np.cos(K_dot_X), -Factor*np.sin(K_dot_X)
