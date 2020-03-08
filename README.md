@@ -1,1 +1,0 @@
-# Linearized_Bjorken
