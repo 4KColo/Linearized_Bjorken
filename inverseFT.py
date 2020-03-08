@@ -33,7 +33,7 @@ d_keta = keta[1]-keta[0]
 N_kx_old = len(kx)
 N_ky_old = len(ky)
 N_keta_old = len(keta)
-N_add = 250
+N_add = 200
 kx_half = np.max(kx) + d_kx * N_add
 ky_half = np.max(ky) + d_ky * N_add
 keta_half = np.max(keta) + d_keta * N_add
@@ -48,9 +48,9 @@ ky_new = np.linspace(-ky_half, ky_half, N_ky)
 keta_new = np.linspace(-keta_half, keta_half, N_keta)
 factor = kx_max*ky_max*keta_max/(2.*np.pi)**3
 
-Nx_half = N_kx/2
-Ny_half = N_ky/2
-Neta_half = N_keta/2
+Nx_half = int(N_kx/2)
+Ny_half = int(N_ky/2)
+Neta_half = int(N_keta/2)
 xlist = np.array(range(-Nx_half, Nx_half+1))*2.0*np.pi/kx_max
 ylist = np.array(range(-Ny_half, Ny_half+1))*2.0*np.pi/ky_max
 etalist = np.array(range(-Neta_half, Neta_half+1))*2.0*np.pi/keta_max
@@ -76,7 +76,7 @@ group2.create_dataset('tau', data = tau)
 
 for step in range(Nstep):
     istep = step * 100
-    print istep
+    print(istep)
     
     t0 = time()
     
@@ -88,25 +88,31 @@ for step in range(Nstep):
     #re_gy_tilde = data[:,:,:,4]
     #im_gy_tilde = data[:,:,:,5]
     #re_geta_tilde = data[:,:,:,6]
-    #im_geta_tilde = data[:,:,:,7]
+    im_geta_tilde = data[:,:,:,7]*1j
     
     t1 = time()
-    print t1 - t0
+    print(t1 - t0)
     
     # extend to larger momentum space
     re_e_tilde = np.pad(re_e_tilde, ((N_add,N_add),(N_add,N_add),(N_add,N_add)), mode='constant', constant_values = 0)
+    im_geta_tilde = np.pad(im_geta_tilde, ((N_add,N_add),(N_add,N_add),(N_add,N_add)), mode='constant', constant_values = 0)
     
     t2 = time()
-    print t2 - t1
+    print(t2 - t1)
     
     re_e_tilde = np.fft.ifftshift(re_e_tilde)
     e_x = np.fft.ifftn(re_e_tilde) * factor
     e_x = np.fft.fftshift(e_x)
+     
+    im_geta_tilde = np.fft.ifftshift(im_geta_tilde)
+    geta_x = np.fft.ifftn(im_geta_tilde) * factor
+    geta_x = np.fft.fftshift(geta_x)
     
     t3 = time()
-    print t3 - t2
+    print(t3 - t2)
     
-    group2.create_dataset('re_e'+str(istep), data = e_x)
+    group2.create_dataset('e'+str(istep), data = e_x)
+    group2.create_dataset('geta'+str(istep), data = geta_x)
     
 f.close()
 f2.close()

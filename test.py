@@ -25,19 +25,19 @@ label_size = 16
 mpl.rcParams['xtick.labelsize'] = label_size 
 mpl.rcParams['ytick.labelsize'] = label_size 
 
-kx = 10.0    # GeV
-ky = 10.0
+kx = 5.0    # GeV
+ky = 5.0
 keta = 0.0
 x0 = 0.0    # GeV^-1
 y0 = 0.0
 eta0 = 0.0
-delta_E = 10.0/tau_i	# Delta E/tau, units: GeV^2
+delta_E = 10.0      # Delta E, units: GeV
 viscosity_over_s_list = [0.0, 1./(4*np.pi), 2./(4*np.pi)]	# eta/s
 
 a = 2.+cs_sqd				# for analytic solution
 b = cs_sqd*(kx*kx + ky*ky)
 
-dtau = 0.001/C1              # time step
+dtau = 0.003/C1              # time step
 nstep = int((tau_f-tau_i)/dtau)+1
 list_tau = np.linspace(tau_i, tau_f, nstep)
 list_temp = Tau_to_Temp(list_tau)
@@ -62,7 +62,7 @@ def A22(x_, a_, b_):
 	return term1+term2
 
 matrix_A = np.array([[A11(tau_i, a, b), A12(tau_i, a, b)],[A21(tau_i, a, b), A22(tau_i, a, b)]])
-matrix_B = np.array([delta_E, 0.0])
+matrix_B = np.array([delta_E/tau_i, 0.0])
 coeff_analytic = np.linalg.solve(matrix_A, matrix_B)
 sol_analytic = coeff_analytic[0]*A11(list_tau, a, b) + coeff_analytic[1]*A12(list_tau, a, b)
 
@@ -83,7 +83,7 @@ for j in range(len(viscosity_over_s_list)):
 	re_geta = np.zeros(nstep)
 	im_geta = np.zeros(nstep)
 
-	re_e[0], im_e[0] = Point_Source_Test(kx, ky, keta, x0, y0, eta0, delta_E)
+	re_e[0], im_e[0] = Point_Source_Test(kx, ky, keta, x0, y0, eta0, delta_E, tau_i)
 	re_gx[0], im_gx[0] = 0.0, 0.0
 	re_gy[0], im_gy[0] = 0.0, 0.0
 	re_geta[0], im_geta[0] = 0.0, 0.0
@@ -102,5 +102,5 @@ plt.ylabel(r'$\Re\delta\tilde{\epsilon}$(GeV$^2$)', size = 20)
 plt.legend(loc='best', fontsize = 16)
 plt.xticks(fontsize = 16)
 plt.yticks(fontsize = 16)
-plt.savefig('test_Re_e_kx='+str(kx)+'_ky='+str(ky)+'_x0='+str(x0)+'_y0='+str(y0)+'.pdf')
+#plt.savefig('test_Re_e_kx='+str(kx)+'_ky='+str(ky)+'_x0='+str(x0)+'_y0='+str(y0)+'.pdf')
 plt.show()

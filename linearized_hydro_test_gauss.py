@@ -26,13 +26,14 @@ nstep = int((tau_f-tau_i)/dtau)+1
 list_tau = np.linspace(tau_i, tau_f, nstep)
 list_temp = Tau_to_Temp(list_tau)
 
+
 ### parallel computing
 Nx = 225
 Ny = 225
 Neta = 225
 kx = np.linspace(-5.0, 5.0, Nx)        # GeV
 ky = np.linspace(-5.0, 5.0, Ny)        # GeV
-keta = np.linspace(-5.0, 5.0, Neta)
+keta = np.linspace(-5.0, 5.0, Neta)    # GeV
 
 shared_array_base = mp.Array(ctypes.c_double, Nx*Ny*Neta*8)
 shared_array = np.ctypeslib.as_array(shared_array_base.get_obj())
@@ -60,7 +61,7 @@ def Linearized_Hydro(X, I_tau, List = shared_array):
 ### save file
 filename = 'Test_Gauss_Source_Nx='+str(Nx)+'_Neta='+str(Neta)+'.hdf5'
 if not os.path.exists(filename):
-    f = h5py.File(filename, 'a')
+    f = h5py.File(filename, 'w')
 else:
     f = h5py.File(filename, 'a')
     
@@ -85,7 +86,7 @@ for istep in range(nstep):
     Update_Parallel = partial(Linearized_Hydro, I_tau = istep)
     pool.map(Update_Parallel, [(i,j,k) for i in range(Nx) for j in range(Ny) for k in range(Neta)])
     if istep%100 == 0:
-        print istep
+        print(istep)
         group.create_dataset('e_g_'+str(istep), data = shared_array)
     
 
