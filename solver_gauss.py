@@ -45,20 +45,20 @@ y0 = 0.0
 eta0 = 0.0
 delta_E = 50.0          # Delta E, units: GeV
 sigma = 1.0             # Width in the Gaussian source, units: GeV^-1
-viscosity = 1.0            # eta/s in units of 1/4pi
+viscosity = 0.0            # eta/s in units of 1/4pi
 viscosity_over_s = viscosity/(4.0*np.pi)
 
 dtau = 0.3/C1
 nstep = int((tau_f-tau_i)/dtau)+1
-list_tau = np.linspace(0.6, 1.8, 5)/C1
+list_tau = np.linspace(0.6, 8.6, 5)/C1
 print(tau_f, list_tau)
 ### parallel computing
-Nx = 201
-Ny = 201
-Neta = 201
-kx = np.linspace(-5.0, 5.0, Nx)        # GeV
-ky = np.linspace(-5.0, 5.0, Ny)        # GeV
-keta = np.linspace(-5.0, 5.0, Neta)    # unit 1
+Nx = 251
+Ny = 251
+Neta = 253
+kx = np.linspace(-10.0, 10.0, Nx)        # GeV
+ky = np.linspace(-10.0, 10.0, Ny)        # GeV
+keta = np.linspace(-20.0, 20.0, Neta)    # unit 1
 
 shared_array_base = mp.Array(ctypes.c_double, Nx*Ny*Neta*2*nstep)
 shared_array = np.ctypeslib.as_array(shared_array_base.get_obj())
@@ -75,7 +75,7 @@ def Integrator(X, List_e = shared_array):
     Y_i = np.array([Epsilon0, 0., 0., 0.])
     a = si.solve_ivp(Integrand, (tau_i, tau_f), Y_i, method='RK45', t_eval=list_tau, args=(Kx, Ky, Keta, viscosity_over_s))
     shared_array[I_kx, I_ky, I_keta, 0] = a.y[0].real
-    shared_array[I_kx, I_ky, I_keta, 1] = a.y[0].imag
+    shared_array[I_kx, I_ky, I_keta, 1] = a.y[3].imag
     return None
 
 Nprocess = mp.cpu_count()
@@ -101,6 +101,6 @@ group.attrs.create('kx', kx)
 group.attrs.create('ky', ky)
 group.attrs.create('keta', keta)
 group.create_dataset('tau', data = list_tau)
-group.create_dataset('epsilon', data = shared_array)
+group.create_dataset('e_and_g', data = shared_array)
 
 f.close()
